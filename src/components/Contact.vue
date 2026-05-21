@@ -1,5 +1,5 @@
 <script setup>
-    import { ref } from 'vue';
+    import { ref, onMounted, onBeforeMount } from 'vue';
 
     import { Notyf } from 'notyf';
     import 'notyf/notyf.min.css';
@@ -51,8 +51,60 @@
             isLoading.value = false;
             notyf.error("Failed to send message");
 
+        } finally {
+            resetRecaptcha();
         }
     }
+
+    // recaptcha integration
+
+    const SITE_KEY = "6LeRDPUsAAAAAMY8JpzR_9JcXyNyZu_AzEFsTF11";
+
+    const recaptchaContainer = ref(null);
+    const recaptchaWidgetID = ref(null);
+    const recaptchaToken = ref("");
+
+    function onRecaptchaSuccess(token) {
+        recaptchaToken.value = token;
+    }
+
+    function onRecaptchaExpired(){
+        recaptchaToken.value = "";
+    }
+
+    function renderRecaptcha(){
+        if(!window.grecaptcha){
+            console.error('reCAPTCHA not loaded');
+            return;
+        }
+
+        recaptchaWidgetID.value = window.grecaptcha.render(recaptchaContainer.value, {
+            sitekey: SITE_KEY,
+            size: 'normal',
+            callback: onRecaptchaSuccess,
+            'expired-ccallback': onRecaptchaExpired
+        })
+    }
+
+    function resetRecaptcha(){
+        if(recaptchaWidgetID.value !== null) {
+            window.grecaptcha.reset(recaptchaWidgetID.value);
+            recaptchaToken.value = '';
+        }
+    }
+
+    onMounted(() => {
+        const interval = setInterval(() => {
+            if(window.grecaptcha && window.grecaptcha.render) {
+                renderRecaptcha();
+                clearInterval(interval)
+            }
+        }, 100);
+
+        onBeforeMount(() => {
+            clearInterval(interval);
+        })
+    })
 
 </script>
 
@@ -82,6 +134,9 @@
                             <a href="https://github.com/cbabbage0991" id="github"><i class="fab fa-github"></i></a>
                         </div>
                         <button type="submit" class="submit-btn pl-5 pr-5" :disabled="isLoading">{{isLoading ? "Sending..." : "Submit"}}</button>
+                    </div>
+                    <div class="d-flex justify-content-end mt-2">
+                        <div ref="recaptchaContainer"></div>
                     </div>
                 </form>
                 
